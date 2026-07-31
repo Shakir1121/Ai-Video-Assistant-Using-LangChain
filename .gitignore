@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.env/
+env/
+venv/
+.venv/
+
+# Audio & Video files
+audio/
+*.mp3
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm
+*.srt
+*.part
+
+# ChromaDB vector store
+chroma_db/
+
+# Generated PDFs
+generated_notes/
+
+# Models (Whisper etc.)
+models/
+
+# FFmpeg (too large for GitHub - users download separately)
+ffmpeg/bin/
+ffmpeg/doc/
+ffmpeg/presets/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env.local
