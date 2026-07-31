@@ -1,5 +1,7 @@
 # AI Video Intelligence System
 
+![Python CI](https://github.com/Shakir1121/Ai-Video-Assistant-Using-LangChain/actions/workflows/python-ci.yml/badge.svg)
+
 An AI-powered video analysis system that transcribes, summarizes, and extracts insights from videos. Supports both YouTube URLs and local file uploads.
 
 ## Features
