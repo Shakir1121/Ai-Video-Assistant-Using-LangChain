@@ -1,4 +1,4 @@
-# AI Video Intelligence System
+# AI Video Assistant Using LangChain
 
 An AI-powered video analysis system that transcribes, summarizes, and extracts insights from videos. Supports both YouTube URLs and local file uploads.
 
