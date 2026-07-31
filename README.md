@@ -65,16 +65,14 @@ streamlit run streamlit_app/app.py
 ```
 ai-video-intelligence-system/
 ├── app/
-│   ├── agents/          # AI agents (summarizer, QA, etc.)
+│   ├── agents/          # AI agents (summarizer, QA)
 │   ├── memory/          # ChromaDB vector store
-│   ├── tools/           # Utilities (youtube, whisper, pipeline)
-│   └── utils/           # Helper functions
+│   └── tools/           # Utilities (youtube, whisper, pipeline)
 ├── streamlit_app/       # Streamlit UI
 ├── ffmpeg/              # FFmpeg binaries
 ├── audio/               # Downloaded/extracted audio files
 ├── chroma_db/           # Vector store persistence
-├── generated_notes/     # Generated PDF reports
-└── models/              # AI models (Whisper, etc.)
+└── generated_notes/     # Generated PDF reports
 ```
 
 ## Usage
