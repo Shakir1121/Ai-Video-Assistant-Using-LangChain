@@ -48,3 +48,6 @@ Thumbs.db
 # Environment
 .env
 *.env.local
+
+# Streamlit secrets (never commit real keys)
+.streamlit/secrets.toml
