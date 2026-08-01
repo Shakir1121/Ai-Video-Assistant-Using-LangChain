@@ -29,7 +29,7 @@ open_questions_chain = create_chain(OPEN_QUESTIONS_PROMPT)
 
 st.set_page_config(page_title="AI Video Intelligence", page_icon="🎬", layout="wide", initial_sidebar_state="collapsed")
 
-for key in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error", "transcript_source"]:
+for key in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error", "transcript_source", "last_question", "qa_answer"]:
     st.session_state.setdefault(key, None)
 for key in ["processed", "processing"]:
     st.session_state.setdefault(key, False)
@@ -175,7 +175,7 @@ if not st.session_state.processed:
 # ==================== RESULTS SECTION ====================
 if st.session_state.processed and st.session_state.transcript:
     if st.button("Process Another Video", use_container_width=True):
-        for k in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error"]:
+        for k in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error", "last_question", "qa_answer"]:
             st.session_state[k] = None
         st.session_state.processed = False
         st.session_state.processing = False
@@ -193,13 +193,28 @@ if st.session_state.processed and st.session_state.transcript:
 
     st.markdown('<div class="card"><h3>Ask Questions</h3><p style="color:#94A3B8;font-size:0.9rem;">Uses ChromaDB RAG to retrieve relevant context</p>', unsafe_allow_html=True)
     q = st.text_input("chat_q", placeholder="e.g., What is the main topic?", label_visibility="collapsed")
+
+    # Only generate the answer when the question actually changes.
+    # This prevents the LLM from re-running on every page rerun (e.g. when
+    # clicking "Generate PDF Report" or the download buttons).
     if q:
-        with st.spinner("Thinking..."):
-            box = st.empty()
-            r = ""
-            for c in qa_agent_stream(st.session_state.transcript, q):
-                r += c
-                box.markdown(f'<div class="chat-msg">{r}</div>', unsafe_allow_html=True)
+        if st.session_state.last_question != q:
+            with st.spinner("Thinking..."):
+                box = st.empty()
+                r = ""
+                for c in qa_agent_stream(st.session_state.transcript, q):
+                    r += c
+                    box.markdown(f'<div class="chat-msg">{r}</div>', unsafe_allow_html=True)
+                st.session_state.qa_answer = r
+            st.session_state.last_question = q
+        else:
+            # Cached answer — show it without re-running the LLM
+            if st.session_state.qa_answer:
+                st.markdown(f'<div class="chat-msg">{st.session_state.qa_answer}</div>', unsafe_allow_html=True)
+    else:
+        # Question cleared — reset cached state
+        st.session_state.last_question = None
+        st.session_state.qa_answer = None
     st.markdown("</div>", unsafe_allow_html=True)
 
     report_text = f"AI VIDEO INTELLIGENCE REPORT\n\nTitle: {st.session_state.video_title or 'Untitled'}\n\nTranscript:\n{st.session_state.transcript}\n\nSummary:\n{st.session_state.summary or 'N/A'}\n\nOpen Questions:\n{st.session_state.open_questions or 'N/A'}"
