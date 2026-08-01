@@ -7,7 +7,7 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT_DIR)
 
 from app.tools.video_pipeline import transcribe_video
-from app.tools.youtube_loader import download_youtube_audio
+from app.tools.youtube_loader import download_youtube_audio, get_youtube_transcript
 from app.tools.notes_generator import save_notes_pdf
 from app.agents.summarizer_agent import summarizer_agent_stream
 from app.agents.qa_agent import qa_agent_stream
@@ -29,7 +29,7 @@ open_questions_chain = create_chain(OPEN_QUESTIONS_PROMPT)
 
 st.set_page_config(page_title="AI Video Intelligence", page_icon="🎬", layout="wide", initial_sidebar_state="collapsed")
 
-for key in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error"]:
+for key in ["transcript", "video_path", "video_title", "summary", "open_questions", "processing_error", "transcript_source"]:
     st.session_state.setdefault(key, None)
 for key in ["processed", "processing"]:
     st.session_state.setdefault(key, False)
@@ -58,15 +58,20 @@ st.markdown('<div style="text-align:center;font-size:3rem;">🎬</div><h1 style=
 st.markdown("""<div class="card card-accent"><div style="display:inline-block;background:rgba(59,130,246,0.15);color:#60A5FA;padding:4px 12px;border-radius:20px;font-weight:600;margin-bottom:12px;">WHAT THIS TOOL DOES</div><ul style="list-style:none;padding:0;margin:0;"><li style="padding:8px 0;color:#94A3B8;">&rarr; Takes any YouTube URL or audio/video file as input</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Transcribes audio using local Whisper AI</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Generates a descriptive video title</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Shows full transcript</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Summarises the video content in bullet points</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Extracts open questions and follow-ups</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Lets you ask questions about the video with ChromaDB RAG</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Export full detailed report as PDF</li></ul></div><hr>""", unsafe_allow_html=True)
 
 
-def run_analysis(video_path, status, bar):
-    t, _ = transcribe_video(video_path)
-    st.session_state.transcript = t
+def analyze_transcript(t):
+    """Run RAG store + LLM summary + open questions on a transcript."""
     store_text(t)
     s = ""
     for c in summarizer_agent_stream(t):
         s += c
     st.session_state.summary = s
     st.session_state.open_questions = open_questions_chain.invoke({"input": t})
+
+
+def run_analysis(video_path, status, bar):
+    t, _ = transcribe_video(video_path)
+    st.session_state.transcript = t
+    analyze_transcript(t)
     st.session_state.processed = True
     st.session_state.processing = False
     status.success("Analysis complete!")
@@ -93,16 +98,36 @@ if not st.session_state.processed:
             label_visibility="collapsed",
         )
         if yt_url and not st.session_state.video_path and not st.session_state.processing:
-            if st.button("⬇️ Download YouTube Audio", use_container_width=True, type="primary"):
+            if st.button("⬇️ Get YouTube Content", use_container_width=True, type="primary"):
                 st.session_state.processing = True
                 st.session_state.processing_error = None
+                st.session_state.transcript_source = None
                 try:
-                    with st.spinner("Downloading audio from YouTube..."):
-                        vp, title = download_youtube_audio(yt_url)
+                    # Attempt 1: Download audio (best for Whisper transcription)
+                    try:
+                        with st.spinner("Downloading audio from YouTube..."):
+                            vp, title = download_youtube_audio(yt_url)
                         st.session_state.video_path = vp
                         st.session_state.video_title = title
-                    st.session_state.processing = False
-                    st.success(f"✅ Downloaded: {title}")
+                        st.session_state.transcript_source = "audio"
+                        st.success(f"✅ Downloaded: {title}")
+                    except Exception as e:
+                        # Attempt 2: Fallback — fetch transcript/captions directly
+                        err = str(e)
+                        st.warning(f"Audio download failed ({err[:80]}...). Trying transcript fallback...")
+                        with st.spinner("Fetching video transcript directly..."):
+                            tr = get_youtube_transcript(yt_url)
+                        if not tr or not tr.strip():
+                            raise RuntimeError("Transcript is empty")
+                        st.session_state.transcript = tr
+                        st.session_state.video_title = yt_url
+                        st.session_state.transcript_source = "transcript"
+                        with st.spinner("Analyzing transcript..."):
+                            analyze_transcript(tr)
+                        st.session_state.processed = True
+                        st.session_state.processing = False
+                        st.success("✅ Fetched video transcript directly!")
+                        st.rerun()
                 except Exception as e:
                     st.session_state.processing_error = str(e)
                     st.session_state.processing = False

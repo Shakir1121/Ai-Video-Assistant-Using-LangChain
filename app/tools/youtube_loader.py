@@ -9,6 +9,80 @@ import shutil
 
 AUDIO_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "audio")
 
+try:
+    from youtube_transcript_api import YouTubeTranscriptApi
+    from youtube_transcript_api._errors import (
+        TranscriptsDisabled,
+        NoTranscriptFound,
+        VideoUnavailable,
+    )
+    _HAS_TRANSCRIPT_API = True
+except ImportError:
+    _HAS_TRANSCRIPT_API = False
+
+
+def _extract_video_id(url: str):
+    """Extract YouTube video ID from various URL formats."""
+    patterns = [
+        r"(?:v=|/v/|youtu\.be/|embed/|shorts/|live/)([a-zA-Z0-9_-]{11})",
+        r"^([a-zA-Z0-9_-]{11})$",
+    ]
+    for p in patterns:
+        m = re.search(p, url)
+        if m:
+            return m.group(1)
+    return None
+
+
+def get_youtube_transcript(url: str, languages=("en", "hi", "ur", "en-US", "en-GB")):
+    """
+    Fetch the video's transcript/captions directly via the caption API.
+    This avoids downloading video data entirely — no 403 from datacenter IPs.
+    Returns a plain-text transcript string.
+    Raises RuntimeError if no captions are available.
+    """
+    if not _HAS_TRANSCRIPT_API:
+        raise RuntimeError(
+            "youtube-transcript-api is not installed. Run: pip install youtube-transcript-api"
+        )
+
+    video_id = _extract_video_id(url)
+    if not video_id:
+        raise RuntimeError(f"Could not extract video ID from URL: {url}")
+
+    try:
+        api = YouTubeTranscriptApi()
+        transcript_list = api.list(video_id)
+
+        try:
+            transcript = transcript_list.find_transcript(languages)
+        except Exception:
+            # Fallback: pick the first manually created transcript
+            transcript = None
+            for t in transcript_list:
+                if not t.is_generated:
+                    transcript = t
+                    break
+            if transcript is None:
+                for t in transcript_list:
+                    transcript = t
+                    break
+            if transcript is None:
+                raise NoTranscriptFound(video_id, languages, {})
+
+        fetched = transcript.fetch()
+        lines = [entry["text"].strip() for entry in fetched if entry.get("text")]
+        return "\n".join(lines)
+
+    except TranscriptsDisabled:
+        raise RuntimeError("This video has transcripts/captions disabled by the uploader.")
+    except NoTranscriptFound:
+        raise RuntimeError("No captions/transcript found for this video.")
+    except VideoUnavailable:
+        raise RuntimeError("This video is unavailable or private.")
+    except Exception as e:
+        raise RuntimeError(f"Could not fetch transcript: {e}")
+
 
 # ---- Robust FFmpeg path for embedded post-processing ----
 def _get_ffmpeg_path():
