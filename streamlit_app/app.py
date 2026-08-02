@@ -7,7 +7,6 @@ ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, ROOT_DIR)
 
 from app.tools.video_pipeline import transcribe_video
-from app.tools.youtube_loader import download_youtube_audio, get_youtube_transcript
 from app.tools.notes_generator import save_notes_pdf
 from app.agents.summarizer_agent import summarizer_agent_stream
 from app.agents.qa_agent import qa_agent_stream
@@ -53,9 +52,9 @@ h1 { font-size: 2.5rem !important; background: linear-gradient(135deg, #60A5FA, 
 .transcript-box { background: #1E293B; border-radius: 12px; padding: 20px; max-height: 400px; overflow-y: auto; font-size: 0.9rem; line-height: 1.6; border: 1px solid #334155; }
 </style>""", unsafe_allow_html=True)
 
-st.markdown('<div style="text-align:center;font-size:3rem;">🎬</div><h1 style="text-align:center;">AI Video Intelligence</h1><p style="color:#64748B;font-size:1.05rem;text-align:center;">Analyze any video — YouTube URL or uploaded file</p>', unsafe_allow_html=True)
+st.markdown('<div style="text-align:center;font-size:3rem;">🎬</div><h1 style="text-align:center;">AI Video Intelligence</h1><p style="color:#64748B;font-size:1.05rem;text-align:center;">Analyze any audio or video file</p>', unsafe_allow_html=True)
 
-st.markdown("""<div class="card card-accent"><div style="display:inline-block;background:rgba(59,130,246,0.15);color:#60A5FA;padding:4px 12px;border-radius:20px;font-weight:600;margin-bottom:12px;">WHAT THIS TOOL DOES</div><ul style="list-style:none;padding:0;margin:0;"><li style="padding:8px 0;color:#94A3B8;">&rarr; Takes any YouTube URL or audio/video file as input</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Transcribes audio using local Whisper AI</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Generates a descriptive video title</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Shows full transcript</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Summarises the video content in bullet points</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Extracts open questions and follow-ups</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Lets you ask questions about the video with ChromaDB RAG</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Export full detailed report as PDF</li></ul></div><hr>""", unsafe_allow_html=True)
+st.markdown("""<div class="card card-accent"><div style="display:inline-block;background:rgba(59,130,246,0.15);color:#60A5FA;padding:4px 12px;border-radius:20px;font-weight:600;margin-bottom:12px;">WHAT THIS TOOL DOES</div><ul style="list-style:none;padding:0;margin:0;"><li style="padding:8px 0;color:#94A3B8;">&rarr; Takes any audio or video file as input</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Transcribes audio using local Whisper AI</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Generates a descriptive video title</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Shows full transcript</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Summarises the video content in bullet points</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Extracts open questions and follow-ups</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Lets you ask questions about the video with ChromaDB RAG</li><li style="padding:8px 0;color:#94A3B8;">&rarr; Export full detailed report as PDF</li></ul></div><hr>""", unsafe_allow_html=True)
 
 
 def analyze_transcript(t):
@@ -81,76 +80,22 @@ def run_analysis(video_path, status, bar):
 
 # ==================== INPUT SECTION ====================
 if not st.session_state.processed:
-    input_mode = st.radio(
-        "input_mode",
-        ["📺 YouTube URL", "📁 Upload File"],
-        horizontal=True,
-        label_visibility="collapsed",
-    )
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown("### Upload Audio / Video File")
+    video_file = st.file_uploader("vid_file", type=["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "m4a"], label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    # ---------- YouTube URL mode ----------
-    if input_mode == "📺 YouTube URL":
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Paste a YouTube URL")
-        yt_url = st.text_input(
-            "yt_url",
-            placeholder="https://www.youtube.com/watch?v=...",
-            label_visibility="collapsed",
-        )
-        if yt_url and not st.session_state.video_path and not st.session_state.processing:
-            if st.button("⬇️ Get YouTube Content", use_container_width=True, type="primary"):
-                st.session_state.processing = True
-                st.session_state.processing_error = None
-                st.session_state.transcript_source = None
-                try:
-                    # Attempt 1: Download audio (best for Whisper transcription)
-                    try:
-                        with st.spinner("Downloading audio from YouTube..."):
-                            vp, title = download_youtube_audio(yt_url)
-                        st.session_state.video_path = vp
-                        st.session_state.video_title = title
-                        st.session_state.transcript_source = "audio"
-                        st.success(f"✅ Downloaded: {title}")
-                    except Exception as e:
-                        # Attempt 2: Fallback — fetch transcript/captions directly
-                        err = str(e)
-                        st.warning(f"Audio download failed ({err[:80]}...). Trying transcript fallback...")
-                        with st.spinner("Fetching video transcript directly..."):
-                            tr = get_youtube_transcript(yt_url)
-                        if not tr or not tr.strip():
-                            raise RuntimeError("Transcript is empty")
-                        st.session_state.transcript = tr
-                        st.session_state.video_title = yt_url
-                        st.session_state.transcript_source = "transcript"
-                        with st.spinner("Analyzing transcript..."):
-                            analyze_transcript(tr)
-                        st.session_state.processed = True
-                        st.session_state.processing = False
-                        st.success("✅ Fetched video transcript directly!")
-                        st.rerun()
-                except Exception as e:
-                    st.session_state.processing_error = str(e)
-                    st.session_state.processing = False
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ---------- Upload file mode ----------
-    else:
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("### Upload Audio / Video File")
-        video_file = st.file_uploader("vid_file", type=["mp4", "mov", "avi", "mkv", "webm", "mp3", "wav", "m4a"], label_visibility="collapsed")
-        st.markdown("</div>", unsafe_allow_html=True)
-
-        if video_file and not st.session_state.video_path and not st.session_state.processing:
-            audio_dir = os.path.join(ROOT_DIR, "audio")
-            os.makedirs(audio_dir, exist_ok=True)
-            base_name, ext = os.path.splitext(video_file.name)
-            safe_base = base_name.replace(" ", "_").replace("(", "").replace(")", "")
-            vp = os.path.join(audio_dir, f"{int(time.time())}_{safe_base}{ext}")
-            with open(vp, "wb") as f:
-                f.write(video_file.read())
-            st.session_state.video_path = vp
-            st.session_state.video_title = base_name
-            st.success(f"Saved: {base_name}{ext}")
+    if video_file and not st.session_state.video_path and not st.session_state.processing:
+        audio_dir = os.path.join(ROOT_DIR, "audio")
+        os.makedirs(audio_dir, exist_ok=True)
+        base_name, ext = os.path.splitext(video_file.name)
+        safe_base = base_name.replace(" ", "_").replace("(", "").replace(")", "")
+        vp = os.path.join(audio_dir, f"{int(time.time())}_{safe_base}{ext}")
+        with open(vp, "wb") as f:
+            f.write(video_file.read())
+        st.session_state.video_path = vp
+        st.session_state.video_title = base_name
+        st.success(f"Saved: {base_name}{ext}")
 
     if st.session_state.processing_error:
         st.error(st.session_state.processing_error)
@@ -217,8 +162,12 @@ if st.session_state.processed and st.session_state.transcript:
         st.session_state.qa_answer = None
     st.markdown("</div>", unsafe_allow_html=True)
 
-    report_text = f"AI VIDEO INTELLIGENCE REPORT\n\nTitle: {st.session_state.video_title or 'Untitled'}\n\nTranscript:\n{st.session_state.transcript}\n\nSummary:\n{st.session_state.summary or 'N/A'}\n\nOpen Questions:\n{st.session_state.open_questions or 'N/A'}"
-    report_md = f"## Report\n\n**Title:** {st.session_state.video_title or 'Untitled'}\n\n### Transcript\n\n{st.session_state.transcript}\n\n### Summary\n\n{st.session_state.summary or 'N/A'}\n\n### Open Questions\n\n{st.session_state.open_questions or 'N/A'}"
+    title = (st.session_state.video_title or "Untitled")
+    summary = (st.session_state.summary or "No summary generated.")
+    open_questions = (st.session_state.open_questions or "No open questions identified.")
+
+    report_text = f"AI VIDEO INTELLIGENCE REPORT\n\nTitle: {title}\n\nTRANSCRIPT\n\n{st.session_state.transcript}\n\nSUMMARY\n\n{summary}\n\nOPEN QUESTIONS & FOLLOW-UPS\n\n{open_questions}\n\nGenerated by AI Video Intelligence"
+    report_md = f"# AI Video Intelligence Report\n\n**Video Title:** {title}\n\n## Transcript\n\n{st.session_state.transcript}\n\n## Summary\n\n{summary}\n\n## Open Questions & Follow-ups\n\n{open_questions}\n\n---\n*Generated by AI Video Intelligence*"
 
     st.markdown('<div class="card"><h3>Export Report</h3>', unsafe_allow_html=True)
     if st.button("Generate PDF Report", use_container_width=True):
