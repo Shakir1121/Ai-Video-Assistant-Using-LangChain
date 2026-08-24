@@ -4,7 +4,7 @@ An AI-powered video analysis system that transcribes, summarizes, and extracts i
 # 🚀 Live Demo
 
 Try the deployed application:
-AI Video Assistant — Live Demo
+[AI Video Assistant — Live Demo] (https://ai-video-assistant-using-langchain-dtqer52kmojkytsmdpx5ql.streamlit.app/)
 
 👉 You can test the project directly in your browser without installing anything.
 ## Features
