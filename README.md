@@ -1,7 +1,12 @@
 # AI Video Assistant Using LangChain
 
 An AI-powered video analysis system that transcribes, summarizes, and extracts insights from videos. Supports both YouTube URLs and local file uploads.
+# 🚀 Live Demo
 
+Try the deployed application:
+AI Video Assistant — Live Demo
+
+👉 You can test the project directly in your browser without installing anything.
 ## Features
 
 - 🎬 Takes any YouTube URL or audio/video file as input
